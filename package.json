@@ -1,0 +1,17 @@
+{
+  "name": "google-docs-to-11ty",
+  "version": "1.0.0",
+  "description": "",
+  "main": "eleventy.config.js",
+  "scripts": {
+    "build": "npx eleventy",
+    "dev": "npm start",
+    "start": "npx eleventy --serve"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@11ty/eleventy": "^2.0.1"
+  }
+}
