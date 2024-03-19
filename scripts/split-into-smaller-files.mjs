@@ -30,18 +30,6 @@ const tree = MDAST_PARSER
 // Parse HTML nodes with rehype so we can more easily manipulate them
 parseHTMLNodes(tree);
 
-// Collect alt tags for each image URL ahead of processing
-// because some images appear twice (copy/paste), but only of them is tagged
-const altByFilename = {};
-visit(tree, {tagName: 'img'}, imageNode => {
-  const imageUrl = imageNode.properties.src;
-  // If we found a fallback alt already, we don't want to override it
-  // We could look into logging a warning at that stage if necessary
-  if (imageNode.properties.alt && !altByFilename[imageUrl]) {
-    altByFilename[imageUrl] = imageNode.properties.alt.trim()
-  }
-})
-
 for (const content of gatherHeadingContents(tree.children)) {
   const {heading, children} = content;
 
@@ -54,8 +42,6 @@ for (const content of gatherHeadingContents(tree.children)) {
   }
   
   const fileName = headingValue ? `${directory}/index.md` : 'index.md'
-  // This will come useful to link images back to the page they're on
-  const filePathStem = fileName.replace('.md','');
   
   // Create a new tree combining the heading and the content nodes
   const contentTree = {
@@ -73,7 +59,7 @@ for (const content of gatherHeadingContents(tree.children)) {
       getImagesInHTMLNodes(contentTree)
         // Compute new image names synchronously so the order is consistent
         // and not impacted by any slowness of the file system when copying
-        .map((hastNode, imageIndexOnPage) => {
+        .map((hastNode) => {
           const imageSource = hastNode.properties.src;
           const extension = extname(imageSource)
 
@@ -106,82 +92,16 @@ for (const content of gatherHeadingContents(tree.children)) {
 
           hastNode.properties.src = imagePath;
 
-          // Extract information from the alt tag
-          let navigationInformation;
-          
-          const altAttributeFromDocument = hastNode.properties.alt?.trim() || altByFilename[imageSource]
-
-          if(altAttributeFromDocument) {
-            navigationInformation = parseImageTag(altAttributeFromDocument);
-          }
-
-          // Set a relevant alt text
-          const imageName = [...headings.map(toString), `image-${baseName}`].join(', ')
-          hastNode.properties.alt = imageName
-
-          // Assign the image an ID so it can easily be linked back to
-          // Needs to account for both headers and index of the image
-          const id = slug(imageName)
-          hastNode.properties.id = id
-
-          // Make images load lazily so they get downloaded only
-          // when appearing on screen, but only after the first 3 images
-          // to not penalise the images at the top of the page
-          if (imageIndexOnPage > 2) {
-            hastNode.properties.loading = 'lazy'
-          }
-
-          // Wrap the image in a link
-          Object.assign(hastNode, {
-            type: 'element',
-            tagName: 'a',
-            properties: {
-              
-              href: imagePath.replace(extension,'/')
-            },
-            children: [
-              {...hastNode}
-            ]
-          })
-
           return {
             sourcePath,
-            destPath,
-            fileName,
-            navigationInformation,
-            extension,
-            imageName,
-            directory,
-            id
+            destPath
           }
         })
         // Copy asynchronously for speed
-        .map(async ({sourcePath, destPath, fileName, imageName, navigationInformation, extension, directory, id }) => {
+        .map(async ({sourcePath, destPath}) => {
           // Create any necessary folder
           await mkdir(dirname(destPath), {recursive: true});
           await copyFile(sourcePath,destPath)
-
-          // Create a page for each image
-          const imageData = {
-            layout: 'app-image', 
-            fileName,
-            extension,
-            title: imageName,
-            tags: ['images'],
-            eleventyNavigation: {
-              hide: true, 
-              key: imageName,
-              parent: headingValue || 'Home',
-              idInParent: id
-            }
-          }
-          if (navigationInformation) {
-            imageData.navigationInformation = navigationInformation
-          }
-          const imagePageContent=`---\n${stringify(imageData)}---`
-
-          await writeFile(destPath.replace(extension, '.md'), imagePageContent)
-
         }))
   const errors = results.filter(result => result.status == 'rejected');
   if (errors.length) {
