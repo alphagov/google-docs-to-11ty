@@ -8,8 +8,10 @@ import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import rehypeParse from "rehype-parse";
 import rehypeStringify from "rehype-stringify";
-import { EXIT, visit } from "unist-util-visit";
+import { visit } from "unist-util-visit";
 import { toString } from "mdast-util-to-string";
+
+import { processImages } from "./process-images.mjs";
 
 const HAST_PARSER = unified().use(rehypeParse, { fragment: true });
 
@@ -44,68 +46,7 @@ for (const content of gatherHeadingContents(tree.children)) {
     children: [heading, ...children].filter(Boolean),
   };
 
-  // Now each of these nodes may contain images, which Google exported plainly in an `images` folder
-  // We can bring them 'closer' to file they relate to and improve their naming a little
-  const imagesInDirectory = {};
-  const results = await Promise.allSettled(
-    getImagesInHTMLNodes(contentTree)
-      // Compute new image names synchronously so the order is consistent
-      // and not impacted by any slowness of the file system when copying
-      .map((hastNode) => {
-        const imageSource = hastNode.properties.src;
-        const extension = extname(imageSource);
-
-        // Compute in which directory the file will now be based on the headings that precede it
-        const headings = headingsPreceding(contentTree, (node) =>
-          node.value?.includes(imageSource)
-        )
-          // Ignore skipped levels if they happen
-          .filter(Boolean)
-          // Skip first heading as the images will be stored in the same folder as the `.md` file that loads them
-          .splice(1);
-
-        const headingSlugs = headings.map((heading) => slug(toString(heading)));
-        const imageDirectory = headingSlugs.length
-          ? join("images", ...headingSlugs)
-          : "images";
-
-        // Compute its name based on its position in the document
-        if (!(imageDirectory in imagesInDirectory)) {
-          imagesInDirectory[imageDirectory] = 0;
-        }
-        imagesInDirectory[imageDirectory]++;
-
-        const baseName = imagesInDirectory[imageDirectory];
-        const fileName = `image-${baseName}${extension}`;
-
-        const sourcePath = join("_import", imageSource);
-        // The path of the image relative from the content file
-        // For referencing in the content
-        const imagePath = join(imageDirectory, fileName);
-        // The page of the image relative to the current working directory
-        // for moving the image
-        const destPath = directory
-          ? join(IMPORT_FOLDER, directory, imagePath)
-          : join(IMPORT_FOLDER, imagePath);
-
-        hastNode.properties.src = imagePath;
-
-        return {
-          sourcePath,
-          destPath,
-        };
-      })
-      // Copy asynchronously for speed
-      .map(async ({ sourcePath, destPath }) => {
-        // Create any necessary folder
-        await mkdir(dirname(destPath), { recursive: true });
-        await copyFile(sourcePath, destPath);
-      })
-  );
-  const errors = results.filter((result) => result.status == "rejected");
-  if (errors.length) {
-    throw new Error("Couldn't copy all images", { cause: results });
-  }
+  await processImages(contentTree);
 
   stringifyHTMLNodes(contentTree);
 
@@ -115,14 +56,6 @@ for (const content of gatherHeadingContents(tree.children)) {
   const filePath = join(IMPORT_FOLDER, fileName);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, fileContent);
-}
-
-function getImagesInHTMLNodes(tree) {
-  const sources = [];
-  visit(tree, { tagName: "img" }, (hastNode) => {
-    sources.push(hastNode);
-  });
-  return sources;
 }
 
 function parseHTMLNodes(tree) {
@@ -140,22 +73,6 @@ function stringifyHTMLNodes(tree) {
       delete node.children;
     }
   });
-}
-
-function headingsPreceding(tree, condition) {
-  const headings = [];
-  visit(tree, (currentNode) => {
-    if (currentNode.type == "heading") {
-      // Replace node at same depth as the heading we just found
-      headings[currentNode.depth - 1] = currentNode;
-      // And clear any further headings
-      headings.splice(currentNode.depth);
-    } else if (condition(currentNode)) {
-      return EXIT;
-    }
-  });
-
-  return headings;
 }
 
 /**
