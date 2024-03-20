@@ -30,16 +30,14 @@ const tree = MDAST_PARSER
 // Parse HTML nodes with rehype so we can more easily manipulate them
 parseHTMLNodes(tree);
 
+const IMPORT_FOLDER = 'content/doc-import'
+
 for (const content of gatherHeadingContents(tree.children)) {
   const {heading, children} = content;
 
   const headingValue = toString(heading);
   
   const directory = headingValue ? slug(headingValue) : '';
-  
-  if (directory) {
-    await mkdir(join('content', directory), {recursive: true});
-  }
   
   const fileName = headingValue ? `${directory}/index.md` : 'index.md'
   
@@ -88,7 +86,7 @@ for (const content of gatherHeadingContents(tree.children)) {
           const imagePath = join(imageDirectory, fileName)
           // The page of the image relative to the current working directory
           // for moving the image
-          const destPath = directory ? join('content',directory, imagePath) : join('content', imagePath)
+          const destPath = directory ? join(IMPORT_FOLDER,directory, imagePath) : join(IMPORT_FOLDER, imagePath)
 
           hastNode.properties.src = imagePath;
 
@@ -112,47 +110,11 @@ for (const content of gatherHeadingContents(tree.children)) {
 
   const pageMarkdown = MDAST_STRINGIFIER
     .stringify(contentTree)
-
-  // Now let's derive some content from the heading value
-  const frontmatter = {
-    title: headingValue || 'Navigation research',
-    titleInContent: true,
-    tags: ['pages'],
-    eleventyNavigation: {
-      key: headingValue || 'Home'
-    }
-  }
-
-  if (!headingValue) {
-    frontmatter.homepage = true;
-    frontmatter.layout = 'app-homepage'
-  }
   
-  const fileContent = `---\n${stringify(frontmatter)}---\n${pageMarkdown}`
-  await writeFile(join('content', fileName), fileContent)
-}
-
-function parseImageTag(tag) {
-  return tag
-    .replace(/\?\?+/gm,'unknown')
-    .split(' ')
-    .map(tagPart => tagPart.split('\n'))
-    .flat().map(tag => {
-      const tagParts = tag.split('_');
-
-      // Some tags omit the location, so we can correct that here
-      if (/^\d+$/.test(tagParts[1])) {
-        tagParts.splice(1, 0, 'unknown')
-      }
-
-      const [navigationType, location, numberOfLinks] = tagParts
-
-      return {
-        navigationType,
-        location,
-        numberOfLinks
-      }
-    })
+  const fileContent = `${pageMarkdown}`
+  const filePath = join(IMPORT_FOLDER, fileName);
+  await mkdir(dirname(filePath), {recursive: true});
+  await writeFile(filePath, fileContent)
 }
 
 function getImagesInHTMLNodes(tree) {
