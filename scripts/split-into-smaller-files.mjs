@@ -1,7 +1,6 @@
-import { basename, dirname, extname, join } from 'node:path'
-import { stringify } from 'yaml'
+import { dirname, join } from 'node:path'
 import slug from 'slug'
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
@@ -58,13 +57,13 @@ for (const content of gatherHeadingContents(tree.children)) {
   await writeFile(filePath, fileContent)
 }
 
-function parseHTMLNodes (tree) {
+function parseHTMLNodes(tree) {
   visit(tree, 'html', (node) => {
     node.children = HAST_PARSER.parse(node.value).children
   })
 }
 
-function stringifyHTMLNodes (tree) {
+function stringifyHTMLNodes(tree) {
   visit(tree, 'html', (node) => {
     if (node.children) {
       node.value = node.children
@@ -84,13 +83,13 @@ function stringifyHTMLNodes (tree) {
  * @param {Number} [headingLevel=1]
  * @yields {{heading: Object, children: Array}}
  */
-function * gatherHeadingContents (children, headingLevel = 1) {
+function* gatherHeadingContents(children, headingLevel = 1) {
   const result = {
     heading: null,
     children: []
   }
   for (const child of children) {
-    if (child.type == 'heading' && child.depth == headingLevel) {
+    if (child.type === 'heading' && child.depth === headingLevel) {
       // Skip empty headings
       if (!child.children?.length) continue
       // Output our current content

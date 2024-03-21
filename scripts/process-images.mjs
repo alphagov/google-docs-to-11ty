@@ -8,7 +8,7 @@ const IMPORT_FOLDER = 'content/doc-import'
 
 const imagesInDirectory = {}
 
-export async function processImages (tree) {
+export async function processImages(tree) {
   const results = await Promise.allSettled(
     getImagesInHTMLNodes(tree)
       .map((hastNode) => processImageNode(hastNode, tree))
@@ -20,13 +20,13 @@ export async function processImages (tree) {
       })
   )
 
-  const errors = results.filter((result) => result.status == 'rejected')
+  const errors = results.filter((result) => result.status === 'rejected')
   if (errors.length) {
     throw new Error("Couldn't copy all images", { cause: results })
   }
 }
 
-function processImageNode (hastNode, tree) {
+function processImageNode(hastNode, tree) {
   const imageSource = hastNode.properties.src
   const extension = extname(imageSource)
 
@@ -70,7 +70,7 @@ function processImageNode (hastNode, tree) {
   }
 }
 
-function getImagesInHTMLNodes (tree) {
+function getImagesInHTMLNodes(tree) {
   const sources = []
   visit(tree, { tagName: 'img' }, (hastNode) => {
     sources.push(hastNode)
@@ -78,10 +78,10 @@ function getImagesInHTMLNodes (tree) {
   return sources
 }
 
-function headingsPreceding (tree, condition) {
+function headingsPreceding(tree, condition) {
   const headings = []
   visit(tree, (currentNode) => {
-    if (currentNode.type == 'heading') {
+    if (currentNode.type === 'heading') {
       // Replace node at same depth as the heading we just found
       headings[currentNode.depth - 1] = currentNode
       // And clear any further headings

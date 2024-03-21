@@ -1,5 +1,5 @@
 import { toHtml } from 'hast-util-to-html'
-import { matches, select, selectAll } from 'hast-util-select'
+import { matches, select } from 'hast-util-select'
 import { visit } from 'unist-util-visit'
 import { remove } from 'unist-util-remove'
 import { toText } from 'hast-util-to-text'
@@ -29,13 +29,17 @@ export default {
       let reachedFirstComment = false
       remove(tree, (node) => {
         // We want to remove links in the content sending to the comments content
-        const isLinkToComment = node.tagName == 'a' && (node.properties.href?.startsWith('#cmnt'))
+        const isLinkToComment =
+          node.tagName === 'a' && node.properties.href?.startsWith('#cmnt')
 
         // But we also want to remove the comments themselves. Those are packed
         // at the end of the doc, each starting with a link back to a reference `cmnt_ref`
         // inside the content to send the user back. Once we reach the first comment,
         // we know any further node can be deleted.
-        if (node.tagName == 'a' && node.properties.href?.startsWith('#cmnt_ref')) {
+        if (
+          node.tagName === 'a' &&
+          node.properties.href?.startsWith('#cmnt_ref')
+        ) {
           reachedFirstComment = true
         }
         return reachedFirstComment || isLinkToComment
@@ -46,7 +50,13 @@ export default {
     () => (tree) => {
       remove(tree, { cascade: false }, (node) => {
         const text = toText(node)
-        return !text && ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span'].includes(node.tagName) && !select('img', node)
+        return (
+          !text &&
+          ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span'].includes(
+            node.tagName
+          ) &&
+          !select('img', node)
+        )
       })
     },
     // Clean up URLs sent to https://www.google.com/url 🤢
@@ -94,23 +104,29 @@ export default {
     },
     // Probably a bit blunt here, but ensure we clean up most of the extra cruft
     // from Google, especially `class` and `style` attributes
-    ['rehype-sanitize', {
-      attributes: {
-        '*': ['href', 'src', 'id', 'alt']
-      },
-      strip: ['style', 'script']
-    }],
+    [
+      'rehype-sanitize',
+      {
+        attributes: {
+          '*': ['href', 'src', 'id', 'alt']
+        },
+        strip: ['style', 'script']
+      }
+    ],
     // Convert the HTML into markdown, but keep the table as HTML
-    ['rehype-remark', {
-      handlers: {
-        table (state, node) {
-          /** @type {Html} */
-          const result = { type: 'html', value: toHtml(node) }
-          state.patch(node, result)
-          return result
+    [
+      'rehype-remark',
+      {
+        handlers: {
+          table(state, node) {
+            /** @type {Html} */
+            const result = { type: 'html', value: toHtml(node) }
+            state.patch(node, result)
+            return result
+          }
         }
       }
-    }],
+    ],
     // Convert to string
     'remark-stringify'
   ]
