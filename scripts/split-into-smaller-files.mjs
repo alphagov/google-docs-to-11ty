@@ -45,7 +45,7 @@ for (const content of gatherHeadingContents(tree.children)) {
     children: [heading, ...children].filter(Boolean)
   }
 
-  await processImages(contentTree)
+  await processImages(contentTree, directory)
 
   stringifyHTMLNodes(contentTree)
 

@@ -6,12 +6,10 @@ import { toString } from 'mdast-util-to-string'
 
 const IMPORT_FOLDER = 'content/doc-import'
 
-const imagesInDirectory = {}
-
-export async function processImages(tree) {
+export async function processImages(tree, directory) {
   const results = await Promise.allSettled(
     getImagesInHTMLNodes(tree)
-      .map((hastNode) => processImageNode(hastNode, tree))
+      .map((hastNode) => processImageNode(hastNode, tree, directory))
       // Copy asynchronously for speed
       .map(async ({ sourcePath, destPath }) => {
         // Create any necessary folder
@@ -26,7 +24,8 @@ export async function processImages(tree) {
   }
 }
 
-function processImageNode(hastNode, tree) {
+function processImageNode(hastNode, tree, directory) {
+  const imagesInDirectory = {}
   const imageSource = hastNode.properties.src
   const extension = extname(imageSource)
 
@@ -60,8 +59,9 @@ function processImageNode(hastNode, tree) {
   const imagePath = join(imageDirectory, fileName)
   // The page of the image relative to the current working directory
   // for moving the image
-  const destPath = join(IMPORT_FOLDER, imageDirectory, fileName)
-
+  const destPath = directory
+    ? join(IMPORT_FOLDER, directory, imagePath)
+    : join(IMPORT_FOLDER, imagePath)
   hastNode.properties.src = imagePath
 
   return {
